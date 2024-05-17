@@ -25,47 +25,62 @@ public class Main {
             String line = value.toString();
             StringTokenizer tokenizer = new StringTokenizer(line);
             String currentDocId = ((FileSplit) context.getInputSplit()).getPath().getName(); // Extracting document ID
-            int totalWords = tokenizer.countTokens();
-            docId.set(currentDocId + ":" + totalWords);
+
+            Map<String, Integer> wordCountMap = new HashMap<>();
+            int totalWords = 0;
+
 
             while (tokenizer.hasMoreTokens()) {
                 String token = tokenizer.nextToken().replaceAll("[^a-zA-Z\\p{InArabic}]", "").toLowerCase();
                 if (token.isEmpty()) {
                     continue;
                 }
-                word.set(token);
+                totalWords++;
+                wordCountMap.put(token, wordCountMap.getOrDefault(token, 0) + 1);
+            }
+
+            for (Map.Entry<String, Integer> entry : wordCountMap.entrySet()) {
+                word.set(entry.getKey());
+                docId.set(currentDocId + ":" + entry.getValue() + ":" + totalWords);
                 context.write(word, docId);
             }
         }
     }
 
-    public static class InvertedIndexReducer extends Reducer<Text, Text, Text, Text> {
+    public static class IntSumReducer extends Reducer<Text, Text, Text, Text> {
 
         private final static Text result = new Text();
 
         public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
-            Map<String, String> fileWordCount = new HashMap<>();
+            Map<String, Integer> fileWordCount = new HashMap<>();
+            Map<String, Integer> fileTotalWords = new HashMap<>();
+
             for (Text value : values) {
                 String[] parts = value.toString().split(":");
                 String filename = parts[0];
-                String totalWords = parts[1];
+                int count = Integer.parseInt(parts[1]);
+                int totalWords = Integer.parseInt(parts[2]);
+
                 int dotIndex = filename.lastIndexOf('.');
                 if (dotIndex != -1) {
                     filename = filename.substring(0, dotIndex);
                 }
 
-                fileWordCount.put(filename, fileWordCount.getOrDefault(filename, "0") + 1 + ":" + totalWords);
+                fileWordCount.put(filename, fileWordCount.getOrDefault(filename, 0) + count);
+                fileTotalWords.put(filename, totalWords);
             }
 
             StringBuilder stringBuilder = new StringBuilder();
-            for (Map.Entry<String, String> entry : fileWordCount.entrySet()) {
-                stringBuilder.append(entry.getKey()).append(":").append(entry.getValue()).append(";");
+            for (String filename : fileWordCount.keySet()) {
+                stringBuilder.append(filename).append(":")
+                        .append(fileWordCount.get(filename)).append(":")
+                        .append(fileTotalWords.get(filename)).append(";");
             }
             if (stringBuilder.length() > 0) {
-                stringBuilder.setLength(stringBuilder.length() - 1);
+                stringBuilder.setLength(stringBuilder.length() - 1); // Remove trailing semicolon
             }
             result.set(stringBuilder.toString());
-            context.write(key, result); // Emit (word, file1:freq1:totalWords1;file2:freq2:totalWords2;...;fileN:freqN:totalWordsN)
+            context.write(key, result);
         }
     }
 
@@ -74,7 +89,7 @@ public class Main {
         Job job = Job.getInstance(conf, "inverted index");
         job.setJarByClass(Main.class);
         job.setMapperClass(TokenizerMapper.class);
-        job.setReducerClass(InvertedIndexReducer.class);
+        job.setReducerClass(IntSumReducer.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
         FileInputFormat.addInputPath(job, new Path(args[0]));
