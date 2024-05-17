@@ -13,8 +13,11 @@ const START_URLS = [
   "https://www.bbc.com/",
   "https://cnn.com/",
   "https://www.ajnet.me/",
+  "https://www.w3schools.com/",
+  "https://www.geeksforgeeks.org/",
 ];
-const MAX_PAGES = 1000;
+
+const MAX_PAGES = 2000;
 const CONTENT_DIR = path.join(__dirname, "content");
 
 if (!fs.existsSync(CONTENT_DIR)) {
