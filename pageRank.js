@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-function calculatePageRank(linksGraph, dampingFactor = 0.85, iterations = 100) {
+function calculatePageRank(linksGraph, dampingFactor = 0.85, iterations = 50) {
   const pages = Object.keys(linksGraph);
   const pageRank = {};
   const numPages = pages.length;
@@ -41,7 +41,7 @@ function calculatePageRank(linksGraph, dampingFactor = 0.85, iterations = 100) {
 
   let data = {};
   sortedPages.forEach((page) => {
-    data[page] = pageRank[page].toFixed(5);
+    data[page] = pageRank[page].toFixed(10);
   });
 
   fs.writeFile("pageRankResults.json", JSON.stringify(data, null, 2), (err) => {
